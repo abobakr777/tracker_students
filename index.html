@@ -1,514 +1,310 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, User, CheckCircle, Trash2, Copy, Video, LayoutGrid, FileSpreadsheet, ChevronDown, ChevronUp, Moon, Sun, Search, Users, WifiOff, Calendar } from 'lucide-react';
-
-// --- استيراد دوال Firebase ---
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-
-// --- إعداد Firebase ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCQdadpjEYK8zjroLVVRNuW_x-IGSBIpB0",
-  authDomain: "malaebapp-d6409.firebaseapp.com",
-  projectId: "malaebapp-d6409",
-  storageBucket: "malaebapp-d6409.firebasestorage.app",
-  messagingSenderId: "267701606872",
-  appId: "1:267701606872:web:889828364ff9f22bdebaad",
-  measurementId: "G-QNQXQBCHHT"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-// نستخدم معرف ثابت للتطبيق عند استخدام قاعدة بيانات خاصة لتسهيل الوصول للمسار
-const appId = 'my-attendance-app'; 
-
-const CourseTrackerApp = () => {
-  // --- الحالة (State) ---
-  const [user, setUser] = useState(null);
-  const [students, setStudents] = useState([]);
-  const [lessons, setLessons] = useState([]);
-  const [attendance, setAttendance] = useState({}); // { studentId: { lessonId: timestamp } }
-  
-  const [viewMode, setViewMode] = useState('cards');
-  const [newStudentName, setNewStudentName] = useState('');
-  
-  // حالة إضافة الدرس الجديد
-  const [newLessonTitle, setNewLessonTitle] = useState('');
-  // تحديد تاريخ اليوم كقيمة افتراضية بصيغة YYYY-MM-DD
-  const [newLessonDate, setNewLessonDate] = useState(new Date().toISOString().split('T')[0]);
-
-  const [darkMode, setDarkMode] = useState(false);
-  const [expandedStudentId, setExpandedStudentId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
-  // --- 1. المصادقة (Authentication) ---
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error("Auth Error:", error);
-      }
-    };
-    initAuth();
-
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  // --- 2. جلب البيانات (Data Listeners) ---
-  useEffect(() => {
-    if (!user) return;
-
-    // أ) الاستماع لقائمة الطلاب
-    const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
-    const unsubStudents = onSnapshot(studentsRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setStudents(data.sort((a, b) => a.name.localeCompare(b.name)));
-    }, (error) => console.error("Students Error:", error));
-
-    // ب) الاستماع لقائمة الدروس
-    const lessonsRef = collection(db, 'artifacts', appId, 'public', 'data', 'lessons');
-    const unsubLessons = onSnapshot(lessonsRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLessons(data.sort((a, b) => a.createdAt - b.createdAt));
-    }, (error) => console.error("Lessons Error:", error));
-
-    // ج) الاستماع لسجلات الحضور
-    const attendanceRef = collection(db, 'artifacts', appId, 'public', 'data', 'attendance_logs');
-    const unsubAttendance = onSnapshot(attendanceRef, (snapshot) => {
-      const records = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (!records[data.studentId]) {
-          records[data.studentId] = {};
-        }
-        records[data.studentId][data.lessonId] = data.timestamp;
-      });
-      setAttendance(records);
-    }, (error) => console.error("Attendance Error:", error));
-
-    return () => {
-      unsubStudents();
-      unsubLessons();
-      unsubAttendance();
-    };
-  }, [user]);
-
-  // مراقبة حالة الاتصال
-  useEffect(() => {
-    const handleStatusChange = () => setIsOffline(!navigator.onLine);
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
-    return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-    };
-  }, []);
-
-
-  // --- الوظائف (Functions) ---
-
-  // إضافة طالب
-  const addStudent = async (e) => {
-    e.preventDefault();
-    if (!newStudentName.trim() || !user) return;
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>متابع الحضور</title>
     
-    const studentId = `student_${Date.now()}`;
-    const studentData = { 
-      name: newStudentName.trim(),
-      createdAt: Date.now()
-    };
-
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), studentData);
-      setNewStudentName('');
-    } catch (err) {
-      console.error("Error adding student:", err);
-    }
-  };
-
-  // حذف طالب
-  const removeStudent = async (id) => {
-    if (!user || !window.confirm('حذف هذا الطالب سيحذف سجل إنجازه بالكامل من قاعدة البيانات. موافق؟')) return;
+    <!-- استدعاء React و Tailwind من الإنترنت -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', id));
-    } catch (err) {
-      console.error("Error removing student:", err);
-    }
-  };
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        /* إخفاء شريط التمرير للمظهر الجمالي */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 transition-colors duration-300">
+    <div id="root"></div>
 
-  // إضافة درس جديد (مع التاريخ)
-  const addLesson = async (e) => {
-    e.preventDefault();
-    if (!newLessonTitle.trim() || !user) return;
-    
-    const lessonId = `lesson_${Date.now()}`;
-    const lessonData = { 
-      title: newLessonTitle.trim(), 
-      date: newLessonDate, // استخدام التاريخ المختار
-      createdAt: Date.now()
-    };
+    <script type="text/babel">
+        const { useState, useEffect } = React;
 
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'lessons', lessonId), lessonData);
-      setNewLessonTitle('');
-      // إعادة تعيين التاريخ لليوم الحالي
-      setNewLessonDate(new Date().toISOString().split('T')[0]);
-    } catch (err) {
-      console.error("Error adding lesson:", err);
-    }
-  };
+        // --- أيقونات (SVGs) يدوية لتعمل بدون تثبيت ---
+        const Icons = {
+            Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            User: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+            Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+            CheckCircle: ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            Copy: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+            Search: ({className}) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+            Moon: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>,
+            Sun: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
+            FileSpreadsheet: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>,
+            LayoutGrid: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+            ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+            ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>,
+            Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        };
 
-  // حذف درس
-  const removeLesson = async (id) => {
-    if (!user || !window.confirm('هل تريد حذف هذا الدرس؟ سيختفي من عند الجميع.')) return;
-    try {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'lessons', id));
-    } catch (err) {
-      console.error("Error removing lesson:", err);
-    }
-  };
+        const CourseTrackerApp = () => {
+            // --- الحالة (State) ---
+            const [students, setStudents] = useState(() => {
+                const saved = localStorage.getItem('tracker_students');
+                return saved ? JSON.parse(saved) : [];
+            });
 
-  // تسجيل/إلغاء مشاهدة
-  const toggleLessonForStudent = async (studentId, lessonId) => {
-    if (!user) return;
+            const [lessons, setLessons] = useState(() => {
+                const saved = localStorage.getItem('tracker_lessons');
+                return saved ? JSON.parse(saved) : [];
+            });
 
-    const recordId = `${studentId}_${lessonId}`;
-    const isCompleted = attendance[studentId]?.[lessonId];
+            const [attendance, setAttendance] = useState(() => {
+                const saved = localStorage.getItem('tracker_attendance');
+                return saved ? JSON.parse(saved) : {};
+            });
 
-    try {
-      if (isCompleted) {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'attendance_logs', recordId));
-      } else {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'attendance_logs', recordId), {
-          studentId,
-          lessonId,
-          timestamp: new Date().toLocaleString('ar-SA'),
-          createdAt: Date.now()
-        });
-      }
-    } catch (err) {
-      console.error("Error toggling attendance:", err);
-    }
-  };
+            const [viewMode, setViewMode] = useState('cards');
+            const [newStudentName, setNewStudentName] = useState('');
+            const [newLessonTitle, setNewLessonTitle] = useState('');
+            const [newLessonDate, setNewLessonDate] = useState(new Date().toISOString().split('T')[0]);
+            
+            const [darkMode, setDarkMode] = useState(false);
+            const [expandedStudentId, setExpandedStudentId] = useState(null);
+            const [searchTerm, setSearchTerm] = useState('');
 
-  // نسخ التقرير
-  const copyReport = () => {
-    let report = `📊 *تقرير متابعة الدروس*\n📅 ${new Date().toLocaleDateString('ar-SA')}\n\n`;
-    
-    students.forEach(student => {
-      const studentRecord = attendance[student.id] || {};
-      const completedCount = Object.keys(studentRecord).filter(lid => lessons.find(l => l.id === lid)).length;
-      const totalLessons = lessons.length;
-      report += `👤 *${student.name}*: (${completedCount}/${totalLessons})\n`;
-    });
+            useEffect(() => {
+                if (darkMode) {
+                    document.body.classList.add('bg-slate-900', 'text-white');
+                    document.body.classList.remove('bg-slate-50', 'text-slate-900');
+                } else {
+                    document.body.classList.add('bg-slate-50', 'text-slate-900');
+                    document.body.classList.remove('bg-slate-900', 'text-white');
+                }
+            }, [darkMode]);
 
-    navigator.clipboard.writeText(report);
-    alert('تم نسخ ملخص الإنجاز!');
-  };
+            useEffect(() => localStorage.setItem('tracker_students', JSON.stringify(students)), [students]);
+            useEffect(() => localStorage.setItem('tracker_lessons', JSON.stringify(lessons)), [lessons]);
+            useEffect(() => localStorage.setItem('tracker_attendance', JSON.stringify(attendance)), [attendance]);
 
-  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+            const addStudent = (e) => {
+                e.preventDefault();
+                if (!newStudentName.trim()) return;
+                const newStudent = { id: Date.now().toString(), name: newStudentName.trim() };
+                setStudents([...students, newStudent]);
+                setNewStudentName('');
+            };
 
-  const getProgress = (studentId) => {
-    const record = attendance[studentId] || {};
-    const completed = lessons.filter(l => record[l.id]).length;
-    return { completed, total: lessons.length, percentage: lessons.length ? (completed / lessons.length) * 100 : 0 };
-  };
+            const removeStudent = (id) => {
+                if (window.confirm('حذف هذا الطالب سيحذف سجل إنجازه بالكامل. موافق؟')) {
+                    setStudents(students.filter(s => s.id !== id));
+                    const newAttendance = { ...attendance };
+                    delete newAttendance[id];
+                    setAttendance(newAttendance);
+                }
+            };
 
-  return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`} dir="rtl">
-      
-      {/* --- الرأس العلوي --- */}
-      <div className={`sticky top-0 z-20 shadow-sm backdrop-blur-md border-b ${darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/90 border-slate-200'}`}>
-        <div className="max-w-3xl mx-auto p-4 flex flex-wrap gap-4 justify-between items-center">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <Users className="text-indigo-500" />
-            متابع الحضور (أونلاين)
-            {isOffline && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded flex items-center gap-1"><WifiOff size={12}/> غير متصل</span>}
-          </h1>
-          
-          <div className="flex gap-2">
-             <button 
-              onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')}
-              className={`p-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors border ${
-                viewMode === 'table' 
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : (darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-white border-slate-200 hover:bg-slate-50')
-              }`}
-            >
-              {viewMode === 'cards' ? <><FileSpreadsheet size={18}/> عرض الجدول</> : <><LayoutGrid size={18}/> عرض البطاقات</>}
-            </button>
-            <button 
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-white border-slate-200 text-slate-600'}`}
-            >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-          </div>
-        </div>
-      </div>
+            const addLesson = (e) => {
+                e.preventDefault();
+                if (!newLessonTitle.trim()) return;
+                const newLesson = { 
+                    id: Date.now().toString(), 
+                    title: newLessonTitle.trim(), 
+                    date: newLessonDate 
+                };
+                setLessons([...lessons, newLesson]);
+                setNewLessonTitle('');
+                setNewLessonDate(new Date().toISOString().split('T')[0]);
+            };
 
-      <div className="max-w-3xl mx-auto p-4 space-y-6">
-        
-        {!user && (
-          <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg text-center">
-             جاري الاتصال بقاعدة البيانات...
-          </div>
-        )}
+            const removeLesson = (id) => {
+                if (window.confirm('هل تريد حذف هذا الدرس؟')) {
+                    setLessons(lessons.filter(l => l.id !== id));
+                }
+            };
 
-        {/* --- قسم إضافة الدروس (عام) --- */}
-        <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm opacity-80">
-                <Plus size={16} />
-                إضافة درس/فيديو جديد للقائمة
-            </h3>
-            <form onSubmit={addLesson} className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1 flex gap-2">
-                  <input
-                      type="text"
-                      value={newLessonTitle}
-                      onChange={(e) => setNewLessonTitle(e.target.value)}
-                      placeholder="عنوان الدرس (مثلاً: المحاضرة الثالثة)"
-                      disabled={!user}
-                      className={`flex-1 p-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-50 border-slate-300'}`}
-                  />
-                  <input
-                      type="date"
-                      value={newLessonDate}
-                      onChange={(e) => setNewLessonDate(e.target.value)}
-                      disabled={!user}
-                      className={`p-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none w-36 ${darkMode ? 'bg-slate-900 border-slate-600 [color-scheme:dark]' : 'bg-slate-50 border-slate-300'}`}
-                  />
-                </div>
-                <button disabled={!user} type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-                    <Plus size={18} />
-                    إضافة
-                </button>
-            </form>
-        </div>
-
-        {/* ======================= وضع البطاقات ======================= */}
-        {viewMode === 'cards' && (
-            <>
-                {/* أدوات البحث والإضافة */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                        <Search className={`absolute right-3 top-3 w-5 h-5 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                        <input 
-                            type="text" 
-                            placeholder="ابحث عن اسمك..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className={`w-full pr-10 pl-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-indigo-500 outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-                        />
-                    </div>
-                    <form onSubmit={addStudent} className="flex gap-2 sm:w-1/3">
-                        <input
-                            type="text"
-                            value={newStudentName}
-                            onChange={(e) => setNewStudentName(e.target.value)}
-                            placeholder="اسم طالب جديد"
-                            disabled={!user}
-                            className={`flex-1 p-2.5 rounded-xl border focus:ring-2 focus:ring-green-500 outline-none ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-                        />
-                        <button disabled={!user} type="submit" className="bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl disabled:opacity-50">
-                            <Plus />
-                        </button>
-                    </form>
-                </div>
-
-                {/* قائمة الطلاب */}
-                <div className="space-y-3">
-                    {filteredStudents.length === 0 ? (
-                        <div className="text-center py-10 opacity-50">
-                            {students.length === 0 ? 'جاري تحميل البيانات أو لا يوجد طلاب...' : 'لا يوجد طلاب مطابقين للبحث'}
-                        </div>
-                    ) : (
-                        filteredStudents.map(student => {
-                            const progress = getProgress(student.id);
-                            const isExpanded = expandedStudentId === student.id;
-
-                            return (
-                                <div key={student.id} className={`rounded-2xl border transition-all overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
-                                    {/* رأس البطاقة */}
-                                    <div 
-                                        onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
-                                        className="p-4 cursor-pointer hover:bg-black/5 flex items-center justify-between"
-                                    >
-                                        <div className="flex items-center gap-3 flex-1">
-                                            <div className={`p-2 rounded-full ${progress.percentage === 100 ? 'bg-green-100 text-green-600' : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500')}`}>
-                                                <User size={20} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <h3 className="font-bold text-lg leading-tight">{student.name}</h3>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <div className="h-1.5 flex-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden max-w-[150px]">
-                                                        <div 
-                                                            className={`h-full rounded-full transition-all duration-500 ${progress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} 
-                                                            style={{ width: `${progress.percentage}%` }}
-                                                        ></div>
-                                                    </div>
-                                                    <span className="text-xs opacity-60 font-medium">{progress.completed} / {progress.total}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="opacity-50">
-                                            {isExpanded ? <ChevronUp /> : <ChevronDown />}
-                                        </div>
-                                    </div>
-
-                                    {/* المحتوى المخفي */}
-                                    {isExpanded && (
-                                        <div className={`p-4 pt-0 border-t ${darkMode ? 'border-slate-700 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
-                                            <p className="text-xs opacity-50 py-3 font-medium">حدد الدروس التي تم الانتهاء منها:</p>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                {lessons.length === 0 ? (
-                                                    <p className="text-sm opacity-50 italic col-span-2 text-center py-2">لم يتم إضافة دروس للنظام بعد.</p>
-                                                ) : lessons.map((lesson, index) => {
-                                                    const isChecked = !!attendance[student.id]?.[lesson.id];
-                                                    return (
-                                                        <div 
-                                                            key={lesson.id}
-                                                            onClick={() => toggleLessonForStudent(student.id, lesson.id)}
-                                                            className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                                                                isChecked 
-                                                                    ? (darkMode ? 'bg-green-900/20 border-green-500/50' : 'bg-green-50 border-green-500') 
-                                                                    : (darkMode ? 'bg-slate-800 border-slate-600 hover:border-slate-500' : 'bg-white border-slate-200 hover:border-slate-300')
-                                                            }`}
-                                                        >
-                                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-colors shrink-0 ${
-                                                                isChecked 
-                                                                    ? 'bg-green-500 border-green-500 text-white' 
-                                                                    : 'border-slate-400'
-                                                            }`}>
-                                                                {isChecked && <CheckCircle size={14} />}
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                              <span className={`text-sm font-medium flex items-center gap-1 ${isChecked ? 'opacity-100' : 'opacity-70'}`}>
-                                                                  <span className="text-xs opacity-50 bg-slate-100 dark:bg-slate-700 px-1.5 rounded">{index + 1}</span>
-                                                                  {lesson.title}
-                                                              </span>
-                                                              <span className="text-[10px] opacity-40 flex items-center gap-1 mt-0.5">
-                                                                <Calendar size={10} />
-                                                                {lesson.date}
-                                                              </span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                            <div className="mt-4 pt-3 border-t border-dashed border-slate-300 dark:border-slate-700 flex justify-between">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); removeStudent(student.id); }}
-                                                    className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1"
-                                                >
-                                                    <Trash2 size={14} /> حذف الطالب
-                                                </button>
-                                                <button 
-                                                    onClick={() => setExpandedStudentId(null)}
-                                                    className="text-indigo-500 hover:text-indigo-600 text-xs font-bold"
-                                                >
-                                                    إغلاق القائمة
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+            const toggleLessonForStudent = (studentId, lessonId) => {
+                const studentRecord = attendance[studentId] || {};
+                const isCompleted = !!studentRecord[lessonId];
                 
-                <div className="fixed bottom-6 left-6 z-10">
-                    <button 
-                        onClick={copyReport}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform active:scale-90 flex items-center gap-2"
-                        title="نسخ تقرير الإنجاز"
-                    >
-                        <Copy size={24} />
-                    </button>
-                </div>
-            </>
-        )}
+                let newRecord;
+                if (isCompleted) {
+                    const { [lessonId]: deleted, ...rest } = studentRecord;
+                    newRecord = rest;
+                } else {
+                    newRecord = {
+                        ...studentRecord,
+                        [lessonId]: new Date().toLocaleString('ar-SA')
+                    };
+                }
+                setAttendance({ ...attendance, [studentId]: newRecord });
+            };
 
-        {/* ======================= وضع الجدول ======================= */}
-        {viewMode === 'table' && (
-            <div className={`rounded-xl border overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-right">
-                        <thead className={`text-xs uppercase font-bold ${darkMode ? 'bg-slate-900/50 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
-                            <tr>
-                                <th className="px-4 py-3 sticky right-0 z-10 border-l dark:border-slate-700 bg-inherit min-w-[140px]">الطالب</th>
-                                <th className="px-4 py-3 border-l dark:border-slate-700 text-center min-w-[80px]">الإنجاز</th>
-                                {lessons.map((lesson, index) => (
-                                    <th key={lesson.id} className="px-4 py-3 min-w-[120px] text-center border-l dark:border-slate-700 group relative align-top">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <div className="flex items-center gap-1">
-                                              <span className="bg-slate-200 dark:bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded text-[10px]">{index + 1}</span>
-                                              <span>{lesson.title}</span>
+            const copyReport = () => {
+                let report = `📊 *تقرير متابعة الدروس*\n📅 ${new Date().toLocaleDateString('ar-SA')}\n\n`;
+                students.forEach(student => {
+                    const studentRecord = attendance[student.id] || {};
+                    const completedCount = Object.keys(studentRecord).filter(lid => lessons.find(l => l.id === lid)).length;
+                    report += `👤 *${student.name}*: (${completedCount}/${lessons.length})\n`;
+                });
+                navigator.clipboard.writeText(report);
+                alert('تم نسخ ملخص الإنجاز!');
+            };
+
+            const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            const getProgress = (studentId) => {
+                const record = attendance[studentId] || {};
+                const completed = lessons.filter(l => record[l.id]).length;
+                return { completed, total: lessons.length, percentage: lessons.length ? (completed / lessons.length) * 100 : 0 };
+            };
+
+            return (
+                <div className="min-h-screen pb-20">
+                    {/* Header */}
+                    <div className={`sticky top-0 z-20 shadow-sm backdrop-blur-md border-b ${darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/90 border-slate-200'}`}>
+                        <div className="max-w-3xl mx-auto p-4 flex flex-wrap gap-4 justify-between items-center">
+                            <h1 className="text-xl font-bold flex items-center gap-2">
+                                <span className="text-indigo-500"><Icons.Users /></span>
+                                متابع الحضور
+                            </h1>
+                            <div className="flex gap-2">
+                                <button onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')} className={`p-2 rounded-lg text-sm font-bold flex items-center gap-2 border transition-colors ${viewMode === 'table' ? 'bg-indigo-600 text-white border-indigo-600' : (darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>
+                                    {viewMode === 'cards' ? <><Icons.FileSpreadsheet/> جدول</> : <><Icons.LayoutGrid/> بطاقات</>}
+                                </button>
+                                <button onClick={() => setDarkMode(!darkMode)} className={`p-2 rounded-lg border ${darkMode ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-white border-slate-200 text-slate-600'}`}>
+                                    {darkMode ? <Icons.Sun /> : <Icons.Moon />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-3xl mx-auto p-4 space-y-6">
+                        {/* Add Lesson */}
+                        <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                            <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm opacity-80">
+                                <Icons.Plus /> إضافة درس جديد
+                            </h3>
+                            <form onSubmit={addLesson} className="flex flex-col sm:flex-row gap-2">
+                                <div className="flex-1 flex gap-2">
+                                    <input type="text" value={newLessonTitle} onChange={(e) => setNewLessonTitle(e.target.value)} placeholder="عنوان الدرس" className={`flex-1 p-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-50 border-slate-300'}`} />
+                                    <input type="date" value={newLessonDate} onChange={(e) => setNewLessonDate(e.target.value)} className={`p-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500 w-36 ${darkMode ? 'bg-slate-900 border-slate-600 [color-scheme:dark]' : 'bg-slate-50 border-slate-300'}`} />
+                                </div>
+                                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium flex items-center justify-center gap-2">
+                                    <Icons.Plus /> إضافة
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Controls */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative flex-1">
+                                <Icons.Search className={`absolute right-3 top-3 w-5 h-5 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                                <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pr-10 pl-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
+                            </div>
+                            <form onSubmit={addStudent} className="flex gap-2 sm:w-1/3">
+                                <input type="text" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} placeholder="اسم طالب..." className={`flex-1 p-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
+                                <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl"><Icons.Plus /></button>
+                            </form>
+                        </div>
+
+                        {/* View Mode: Cards */}
+                        {viewMode === 'cards' && (
+                            <div className="space-y-3">
+                                {filteredStudents.length === 0 ? <div className="text-center py-10 opacity-50">لا يوجد طلاب</div> : filteredStudents.map(student => {
+                                    const progress = getProgress(student.id);
+                                    const isExpanded = expandedStudentId === student.id;
+                                    return (
+                                        <div key={student.id} className={`rounded-2xl border transition-all overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                            <div onClick={() => setExpandedStudentId(isExpanded ? null : student.id)} className="p-4 cursor-pointer hover:bg-black/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <div className={`p-2 rounded-full ${progress.percentage === 100 ? 'bg-green-100 text-green-600' : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500')}`}><Icons.User /></div>
+                                                    <div className="flex-1">
+                                                        <h3 className="font-bold text-lg leading-tight">{student.name}</h3>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div className="h-1.5 flex-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden max-w-[150px]">
+                                                                <div className={`h-full rounded-full transition-all duration-500 ${progress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${progress.percentage}%` }}></div>
+                                                            </div>
+                                                            <span className="text-xs opacity-60 font-medium">{progress.completed} / {progress.total}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="opacity-50">{isExpanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}</div>
                                             </div>
-                                            <span className="text-[10px] opacity-60 font-normal">{lesson.date}</span>
-                                            <button 
-                                                onClick={() => removeLesson(lesson.id)} 
-                                                className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/10 rounded mt-1"
-                                                title="حذف الدرس"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
+                                            {isExpanded && (
+                                                <div className={`p-4 pt-0 border-t ${darkMode ? 'border-slate-700 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
+                                                    <p className="text-xs opacity-50 py-3 font-medium">حدد الدروس المكتملة:</p>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        {lessons.length === 0 ? <p className="text-sm opacity-50 italic col-span-2 text-center">لا توجد دروس</p> : lessons.map((lesson, idx) => {
+                                                            const isChecked = !!attendance[student.id]?.[lesson.id];
+                                                            return (
+                                                                <div key={lesson.id} onClick={() => toggleLessonForStudent(student.id, lesson.id)} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isChecked ? (darkMode ? 'bg-green-900/20 border-green-500/50' : 'bg-green-50 border-green-500') : (darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200')}`}>
+                                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-colors shrink-0 ${isChecked ? 'bg-green-500 border-green-500 text-white' : 'border-slate-400'}`}>{isChecked && <Icons.CheckCircle className="w-3.5 h-3.5" />}</div>
+                                                                    <div className="flex flex-col"><span className={`text-sm font-medium flex items-center gap-1 ${isChecked ? 'opacity-100' : 'opacity-70'}`}><span className="text-xs opacity-50 bg-slate-100 dark:bg-slate-700 px-1.5 rounded">{idx + 1}</span>{lesson.title}</span><span className="text-[10px] opacity-40 flex items-center gap-1 mt-0.5"><Icons.Calendar />{lesson.date}</span></div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="mt-4 pt-3 border-t border-dashed border-slate-300 dark:border-slate-700 flex justify-between">
+                                                        <button onClick={(e) => { e.stopPropagation(); removeStudent(student.id); }} className="text-red-400 hover:text-red-600 text-xs flex items-center gap-1"><Icons.Trash2 /> حذف الطالب</button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y dark:divide-slate-700">
-                            {students.map(student => {
-                                const progress = getProgress(student.id);
-                                return (
-                                    <tr key={student.id} className={`${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'}`}>
-                                        <td className={`px-4 py-3 font-medium sticky right-0 z-10 border-l dark:border-slate-700 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>
-                                            {student.name}
-                                        </td>
-                                        <td className="px-4 py-3 text-center border-l dark:border-slate-700">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                progress.percentage === 100 ? 'bg-green-100 text-green-700' : 
-                                                progress.percentage > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
-                                            }`}>
-                                                {progress.completed}/{progress.total}
-                                            </span>
-                                        </td>
-                                        {lessons.map(lesson => {
-                                            const isDone = !!attendance[student.id]?.[lesson.id];
-                                            return (
-                                                <td 
-                                                    key={lesson.id} 
-                                                    className="px-4 py-3 text-center border-l dark:border-slate-700 cursor-pointer hover:bg-black/5"
-                                                    onClick={() => toggleLessonForStudent(student.id, lesson.id)}
-                                                >
-                                                    {isDone ? (
-                                                        <CheckCircle className="mx-auto text-green-500" size={18} />
-                                                    ) : (
-                                                        <div className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 mx-auto"></div>
-                                                    )}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* View Mode: Table */}
+                        {viewMode === 'table' && (
+                            <div className={`rounded-xl border overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-right">
+                                        <thead className={`text-xs uppercase font-bold ${darkMode ? 'bg-slate-900/50 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
+                                            <tr>
+                                                <th className="px-4 py-3 sticky right-0 z-10 border-l dark:border-slate-700 bg-inherit min-w-[140px]">الطالب</th>
+                                                <th className="px-4 py-3 border-l dark:border-slate-700 text-center min-w-[80px]">الإنجاز</th>
+                                                {lessons.map((lesson, idx) => (
+                                                    <th key={lesson.id} className="px-4 py-3 min-w-[120px] text-center border-l dark:border-slate-700 group relative align-top">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <div className="flex items-center gap-1"><span className="bg-slate-200 dark:bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded text-[10px]">{idx + 1}</span><span>{lesson.title}</span></div>
+                                                            <span className="text-[10px] opacity-60 font-normal">{lesson.date}</span>
+                                                            <button onClick={() => removeLesson(lesson.id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/10 rounded mt-1" title="حذف الدرس"><Icons.Trash2 /></button>
+                                                        </div>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y dark:divide-slate-700">
+                                            {filteredStudents.map(student => {
+                                                const progress = getProgress(student.id);
+                                                return (
+                                                    <tr key={student.id} className={`${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'}`}>
+                                                        <td className={`px-4 py-3 font-medium sticky right-0 z-10 border-l dark:border-slate-700 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>{student.name}</td>
+                                                        <td className="px-4 py-3 text-center border-l dark:border-slate-700"><span className={`px-2 py-1 rounded text-xs font-bold ${progress.percentage === 100 ? 'bg-green-100 text-green-700' : progress.percentage > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>{progress.completed}/{progress.total}</span></td>
+                                                        {lessons.map(lesson => {
+                                                            const isDone = !!attendance[student.id]?.[lesson.id];
+                                                            return (
+                                                                <td key={lesson.id} className="px-4 py-3 text-center border-l dark:border-slate-700 cursor-pointer hover:bg-black/5" onClick={() => toggleLessonForStudent(student.id, lesson.id)}>
+                                                                    {isDone ? <Icons.CheckCircle className="mx-auto text-green-500 w-5 h-5" /> : <div className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 mx-auto"></div>}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                        <div className="fixed bottom-6 left-6 z-10">
+                            <button onClick={copyReport} className="bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-transform active:scale-90 flex items-center gap-2" title="نسخ تقرير الإنجاز"><Icons.Copy /></button>
+                        </div>
+                    </div>
                 </div>
-                {students.length === 0 && <div className="p-8 text-center opacity-50">القائمة فارغة</div>}
-            </div>
-        )}
+            );
+        };
 
-      </div>
-    </div>
-  );
-};
-
-export default CourseTrackerApp;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CourseTrackerApp />);
+    </script>
+</body>
+</html>
