@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>متابع الحضور</title>
+    <title>متابع الحضور (أونلاين)</title>
     
-    <!-- استدعاء React و Tailwind من الإنترنت -->
+    <!-- استدعاء React و Tailwind -->
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -13,19 +13,66 @@
     
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        /* إخفاء شريط التمرير للمظهر الجمالي */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
+
+    <!-- إعداد Firebase (Module) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+        // إعدادات مشروعك
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQdadpjEYK8zjroLVVRNuW_x-IGSBIpB0",
+            authDomain: "malaebapp-d6409.firebaseapp.com",
+            projectId: "malaebapp-d6409",
+            storageBucket: "malaebapp-d6409.firebasestorage.app",
+            messagingSenderId: "267701606872",
+            appId: "1:267701606872:web:889828364ff9f22bdebaad",
+            measurementId: "G-QNQXQBCHHT"
+        };
+
+        // تهيئة Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // جعل دوال Firebase متاحة لـ React
+        window.fb = {
+            auth,
+            db,
+            signInAnonymously,
+            onAuthStateChanged,
+            collection,
+            doc,
+            setDoc,
+            deleteDoc,
+            onSnapshot,
+            appId: 'attendance-app-online' // معرف ثابت لتجميع البيانات في مكان واحد
+        };
+
+        // إشارة لبدء تطبيق React بعد تحميل Firebase
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
 </head>
 <body class="bg-slate-50 text-slate-900 transition-colors duration-300">
-    <div id="root"></div>
+    <div id="root">
+        <div class="flex items-center justify-center min-h-screen text-slate-500 gap-2">
+            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            جاري الاتصال بقاعدة البيانات...
+        </div>
+    </div>
 
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // --- أيقونات (SVGs) يدوية لتعمل بدون تثبيت ---
+        // --- أيقونات (SVGs) ---
         const Icons = {
             Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
             User: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -40,26 +87,16 @@
             LayoutGrid: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
             ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
             ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>,
-            Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+            WifiOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
         };
 
         const CourseTrackerApp = () => {
-            // --- الحالة (State) ---
-            const [students, setStudents] = useState(() => {
-                const saved = localStorage.getItem('tracker_students');
-                return saved ? JSON.parse(saved) : [];
-            });
-
-            const [lessons, setLessons] = useState(() => {
-                const saved = localStorage.getItem('tracker_lessons');
-                return saved ? JSON.parse(saved) : [];
-            });
-
-            const [attendance, setAttendance] = useState(() => {
-                const saved = localStorage.getItem('tracker_attendance');
-                return saved ? JSON.parse(saved) : {};
-            });
-
+            const [user, setUser] = useState(null);
+            const [students, setStudents] = useState([]);
+            const [lessons, setLessons] = useState([]);
+            const [attendance, setAttendance] = useState({});
+            
             const [viewMode, setViewMode] = useState('cards');
             const [newStudentName, setNewStudentName] = useState('');
             const [newLessonTitle, setNewLessonTitle] = useState('');
@@ -68,7 +105,9 @@
             const [darkMode, setDarkMode] = useState(false);
             const [expandedStudentId, setExpandedStudentId] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
+            const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
+            // --- تشغيل الوضع الليلي ---
             useEffect(() => {
                 if (darkMode) {
                     document.body.classList.add('bg-slate-900', 'text-white');
@@ -79,61 +118,116 @@
                 }
             }, [darkMode]);
 
-            useEffect(() => localStorage.setItem('tracker_students', JSON.stringify(students)), [students]);
-            useEffect(() => localStorage.setItem('tracker_lessons', JSON.stringify(lessons)), [lessons]);
-            useEffect(() => localStorage.setItem('tracker_attendance', JSON.stringify(attendance)), [attendance]);
+            // --- 1. المصادقة والاتصال بقاعدة البيانات ---
+            useEffect(() => {
+                // الانتظار حتى يتم تحميل مكتبة Firebase بالكامل
+                const checkFirebase = setInterval(() => {
+                    if (window.fb) {
+                        clearInterval(checkFirebase);
+                        const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
+                        
+                        signInAnonymously(auth).catch(console.error);
+                        onAuthStateChanged(auth, (u) => setUser(u));
+                    }
+                }, 100);
+                return () => clearInterval(checkFirebase);
+            }, []);
 
-            const addStudent = (e) => {
+            // --- 2. جلب البيانات (Listeners) ---
+            useEffect(() => {
+                if (!user || !window.fb) return;
+                const { db, collection, onSnapshot, appId } = window.fb;
+
+                // أ) الطلاب
+                const unsubStudents = onSnapshot(collection(db, 'artifacts', appId, 'students'), (snap) => {
+                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setStudents(data.sort((a, b) => a.name.localeCompare(b.name)));
+                });
+
+                // ب) الدروس
+                const unsubLessons = onSnapshot(collection(db, 'artifacts', appId, 'lessons'), (snap) => {
+                    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setLessons(data.sort((a, b) => a.createdAt - b.createdAt));
+                });
+
+                // ج) الحضور
+                const unsubAttendance = onSnapshot(collection(db, 'artifacts', appId, 'attendance_logs'), (snap) => {
+                    const records = {};
+                    snap.docs.forEach(d => {
+                        const data = d.data();
+                        if (!records[data.studentId]) records[data.studentId] = {};
+                        records[data.studentId][data.lessonId] = data.timestamp;
+                    });
+                    setAttendance(records);
+                });
+
+                return () => { unsubStudents(); unsubLessons(); unsubAttendance(); };
+            }, [user]);
+
+            // مراقبة حالة الإنترنت
+            useEffect(() => {
+                const handleStatus = () => setIsOffline(!navigator.onLine);
+                window.addEventListener('online', handleStatus);
+                window.addEventListener('offline', handleStatus);
+                return () => { window.removeEventListener('online', handleStatus); window.removeEventListener('offline', handleStatus); };
+            }, []);
+
+            // --- الوظائف (Functions) ---
+
+            const addStudent = async (e) => {
                 e.preventDefault();
-                if (!newStudentName.trim()) return;
-                const newStudent = { id: Date.now().toString(), name: newStudentName.trim() };
-                setStudents([...students, newStudent]);
+                if (!newStudentName.trim() || !user) return;
+                const { db, setDoc, doc, appId } = window.fb;
+                
+                const id = `student_${Date.now()}`;
+                await setDoc(doc(db, 'artifacts', appId, 'students', id), {
+                    name: newStudentName.trim(),
+                    createdAt: Date.now()
+                });
                 setNewStudentName('');
             };
 
-            const removeStudent = (id) => {
-                if (window.confirm('حذف هذا الطالب سيحذف سجل إنجازه بالكامل. موافق؟')) {
-                    setStudents(students.filter(s => s.id !== id));
-                    const newAttendance = { ...attendance };
-                    delete newAttendance[id];
-                    setAttendance(newAttendance);
-                }
+            const removeStudent = async (id) => {
+                if (!user || !window.confirm('سيتم حذف الطالب وسجل إنجازه نهائياً. موافق؟')) return;
+                const { db, deleteDoc, doc, appId } = window.fb;
+                await deleteDoc(doc(db, 'artifacts', appId, 'students', id));
             };
 
-            const addLesson = (e) => {
+            const addLesson = async (e) => {
                 e.preventDefault();
-                if (!newLessonTitle.trim()) return;
-                const newLesson = { 
-                    id: Date.now().toString(), 
-                    title: newLessonTitle.trim(), 
-                    date: newLessonDate 
-                };
-                setLessons([...lessons, newLesson]);
+                if (!newLessonTitle.trim() || !user) return;
+                const { db, setDoc, doc, appId } = window.fb;
+
+                const id = `lesson_${Date.now()}`;
+                await setDoc(doc(db, 'artifacts', appId, 'lessons', id), {
+                    title: newLessonTitle.trim(),
+                    date: newLessonDate,
+                    createdAt: Date.now()
+                });
                 setNewLessonTitle('');
                 setNewLessonDate(new Date().toISOString().split('T')[0]);
             };
 
-            const removeLesson = (id) => {
-                if (window.confirm('هل تريد حذف هذا الدرس؟')) {
-                    setLessons(lessons.filter(l => l.id !== id));
-                }
+            const removeLesson = async (id) => {
+                if (!user || !window.confirm('هل تريد حذف هذا الدرس؟')) return;
+                const { db, deleteDoc, doc, appId } = window.fb;
+                await deleteDoc(doc(db, 'artifacts', appId, 'lessons', id));
             };
 
-            const toggleLessonForStudent = (studentId, lessonId) => {
-                const studentRecord = attendance[studentId] || {};
-                const isCompleted = !!studentRecord[lessonId];
+            const toggleLessonForStudent = async (studentId, lessonId) => {
+                if (!user) return;
+                const { db, setDoc, deleteDoc, doc, appId } = window.fb;
                 
-                let newRecord;
+                const recordId = `${studentId}_${lessonId}`;
+                const isCompleted = attendance[studentId]?.[lessonId];
+
                 if (isCompleted) {
-                    const { [lessonId]: deleted, ...rest } = studentRecord;
-                    newRecord = rest;
+                    await deleteDoc(doc(db, 'artifacts', appId, 'attendance_logs', recordId));
                 } else {
-                    newRecord = {
-                        ...studentRecord,
-                        [lessonId]: new Date().toLocaleString('ar-SA')
-                    };
+                    await setDoc(doc(db, 'artifacts', appId, 'attendance_logs', recordId), {
+                        studentId, lessonId, timestamp: new Date().toLocaleString('ar-SA')
+                    });
                 }
-                setAttendance({ ...attendance, [studentId]: newRecord });
             };
 
             const copyReport = () => {
@@ -143,8 +237,20 @@
                     const completedCount = Object.keys(studentRecord).filter(lid => lessons.find(l => l.id === lid)).length;
                     report += `👤 *${student.name}*: (${completedCount}/${lessons.length})\n`;
                 });
-                navigator.clipboard.writeText(report);
-                alert('تم نسخ ملخص الإنجاز!');
+                
+                try {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = report;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('تم نسخ ملخص الإنجاز!');
+                } catch (err) {
+                    alert('يرجى النسخ يدوياً.');
+                }
             };
 
             const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -155,6 +261,8 @@
                 return { completed, total: lessons.length, percentage: lessons.length ? (completed / lessons.length) * 100 : 0 };
             };
 
+            if (!user && !isOffline) return null; // Loading handled by HTML spinner
+
             return (
                 <div className="min-h-screen pb-20">
                     {/* Header */}
@@ -162,7 +270,8 @@
                         <div className="max-w-3xl mx-auto p-4 flex flex-wrap gap-4 justify-between items-center">
                             <h1 className="text-xl font-bold flex items-center gap-2">
                                 <span className="text-indigo-500"><Icons.Users /></span>
-                                متابع الحضور
+                                متابع الحضور (أونلاين)
+                                {isOffline && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded flex items-center gap-1"><Icons.WifiOff/> غير متصل</span>}
                             </h1>
                             <div className="flex gap-2">
                                 <button onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')} className={`p-2 rounded-lg text-sm font-bold flex items-center gap-2 border transition-colors ${viewMode === 'table' ? 'bg-indigo-600 text-white border-indigo-600' : (darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>
@@ -176,6 +285,13 @@
                     </div>
 
                     <div className="max-w-3xl mx-auto p-4 space-y-6">
+                        
+                        {!user && isOffline && (
+                           <div className="p-4 bg-red-50 text-red-800 rounded-lg text-center mb-4">
+                               أنت غير متصل بالإنترنت. البيانات المعروضة قد تكون قديمة ولن يتم حفظ التغييرات.
+                           </div>
+                        )}
+
                         {/* Add Lesson */}
                         <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                             <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm opacity-80">
@@ -183,10 +299,10 @@
                             </h3>
                             <form onSubmit={addLesson} className="flex flex-col sm:flex-row gap-2">
                                 <div className="flex-1 flex gap-2">
-                                    <input type="text" value={newLessonTitle} onChange={(e) => setNewLessonTitle(e.target.value)} placeholder="عنوان الدرس" className={`flex-1 p-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-50 border-slate-300'}`} />
-                                    <input type="date" value={newLessonDate} onChange={(e) => setNewLessonDate(e.target.value)} className={`p-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500 w-36 ${darkMode ? 'bg-slate-900 border-slate-600 [color-scheme:dark]' : 'bg-slate-50 border-slate-300'}`} />
+                                    <input required autoComplete="off" type="text" value={newLessonTitle} onChange={(e) => setNewLessonTitle(e.target.value)} placeholder="عنوان الدرس" disabled={!user} className={`flex-1 p-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-50 border-slate-300'}`} />
+                                    <input type="date" value={newLessonDate} onChange={(e) => setNewLessonDate(e.target.value)} disabled={!user} className={`p-2 rounded-lg border outline-none focus:ring-2 focus:ring-indigo-500 w-36 ${darkMode ? 'bg-slate-900 border-slate-600 [color-scheme:dark]' : 'bg-slate-50 border-slate-300'}`} />
                                 </div>
-                                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium flex items-center justify-center gap-2">
+                                <button type="submit" disabled={!user} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50">
                                     <Icons.Plus /> إضافة
                                 </button>
                             </form>
@@ -199,15 +315,15 @@
                                 <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pr-10 pl-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
                             </div>
                             <form onSubmit={addStudent} className="flex gap-2 sm:w-1/3">
-                                <input type="text" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} placeholder="اسم طالب..." className={`flex-1 p-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
-                                <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl"><Icons.Plus /></button>
+                                <input required autoComplete="off" type="text" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} placeholder="اسم طالب..." disabled={!user} className={`flex-1 p-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
+                                <button type="submit" disabled={!user} className="bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl disabled:opacity-50"><Icons.Plus /></button>
                             </form>
                         </div>
 
                         {/* View Mode: Cards */}
                         {viewMode === 'cards' && (
                             <div className="space-y-3">
-                                {filteredStudents.length === 0 ? <div className="text-center py-10 opacity-50">لا يوجد طلاب</div> : filteredStudents.map(student => {
+                                {filteredStudents.length === 0 ? <div className="text-center py-10 opacity-50">لا يوجد طلاب (أو جاري التحميل)</div> : filteredStudents.map(student => {
                                     const progress = getProgress(student.id);
                                     const isExpanded = expandedStudentId === student.id;
                                     return (
@@ -303,6 +419,7 @@
             );
         };
 
+        // تشغيل React بعد تحميل الصفحة
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<CourseTrackerApp />);
     </script>
