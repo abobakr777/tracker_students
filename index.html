@@ -18,11 +18,11 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 
-    <!-- إعداد Firebase (Module) -->
+    <!-- إعداد Firebase (Module) - تم تحديث الإصدار لضمان الاستقرار -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
         // إعدادات مشروعك
         const firebaseConfig = {
@@ -51,7 +51,7 @@
             setDoc,
             deleteDoc,
             onSnapshot,
-            appId: 'attendance-app-online' // معرف ثابت لتجميع البيانات في مكان واحد
+            appId: 'attendance-app-online'
         };
 
         // إشارة لبدء تطبيق React بعد تحميل Firebase
@@ -60,12 +60,16 @@
 </head>
 <body class="bg-slate-50 text-slate-900 transition-colors duration-300">
     <div id="root">
-        <div class="flex items-center justify-center min-h-screen text-slate-500 gap-2">
-            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            جاري الاتصال بقاعدة البيانات...
+        <!-- شاشة التحميل الأولية -->
+        <div class="flex flex-col items-center justify-center min-h-screen text-slate-500 gap-4">
+            <div class="flex items-center gap-2">
+                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>جاري تحميل النظام...</span>
+            </div>
+            <p class="text-xs text-slate-400">إذا استغرق هذا وقتاً طويلاً، تأكد من اتصالك بالإنترنت.</p>
         </div>
     </div>
 
@@ -88,7 +92,8 @@
             ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
             ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>,
             Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-            WifiOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            WifiOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
+            Error: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         };
 
         const CourseTrackerApp = () => {
@@ -106,6 +111,7 @@
             const [expandedStudentId, setExpandedStudentId] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
             const [isOffline, setIsOffline] = useState(!navigator.onLine);
+            const [errorMessage, setErrorMessage] = useState(null);
 
             // --- تشغيل الوضع الليلي ---
             useEffect(() => {
@@ -120,14 +126,22 @@
 
             // --- 1. المصادقة والاتصال بقاعدة البيانات ---
             useEffect(() => {
+                let attempts = 0;
                 // الانتظار حتى يتم تحميل مكتبة Firebase بالكامل
                 const checkFirebase = setInterval(() => {
+                    attempts++;
                     if (window.fb) {
                         clearInterval(checkFirebase);
                         const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
                         
-                        signInAnonymously(auth).catch(console.error);
+                        signInAnonymously(auth).catch((err) => {
+                            console.error(err);
+                            setErrorMessage("فشل تسجيل الدخول. تأكد من إعدادات قاعدة البيانات.");
+                        });
                         onAuthStateChanged(auth, (u) => setUser(u));
+                    } else if (attempts > 50) { // 5 ثواني
+                        clearInterval(checkFirebase);
+                        setErrorMessage("فشل تحميل النظام. تأكد من اتصالك بالإنترنت، أو أنك تستخدم سيرفر محلي (Local Server) وليس فتح الملف مباشرة.");
                     }
                 }, 100);
                 return () => clearInterval(checkFirebase);
@@ -142,6 +156,9 @@
                 const unsubStudents = onSnapshot(collection(db, 'artifacts', appId, 'students'), (snap) => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     setStudents(data.sort((a, b) => a.name.localeCompare(b.name)));
+                }, (error) => {
+                     console.error("خطأ في جلب الطلاب:", error);
+                     setErrorMessage("لا يمكن جلب البيانات. قد يكون السبب نقص الصلاحيات في Firestore.");
                 });
 
                 // ب) الدروس
@@ -260,6 +277,20 @@
                 const completed = lessons.filter(l => record[l.id]).length;
                 return { completed, total: lessons.length, percentage: lessons.length ? (completed / lessons.length) * 100 : 0 };
             };
+
+            // شاشة الخطأ
+            if (errorMessage) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4">
+                        <div className="bg-red-50 text-red-800 p-6 rounded-xl border border-red-200 text-center max-w-md">
+                            <Icons.Error />
+                            <h3 className="text-lg font-bold mt-2">خطأ في التحميل</h3>
+                            <p className="mt-2 text-sm">{errorMessage}</p>
+                            <button onClick={() => window.location.reload()} className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm">إعادة المحاولة</button>
+                        </div>
+                    </div>
+                );
+            }
 
             if (!user && !isOffline) return null; // Loading handled by HTML spinner
 
