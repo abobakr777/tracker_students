@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>متابع الحضور (أونلاين)</title>
     
     <!-- استدعاء React و Tailwind -->
@@ -12,19 +12,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
+        /* تحسين شريط التمرير */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        
+        /* إصلاح التمرير في الجوال */
+        .overflow-x-auto {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
     </style>
 
-    <!-- إعداد Firebase (Module) - تم تحديث الإصدار لضمان الاستقرار -->
+    <!-- إعداد Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-        // إعدادات مشروعك
         const firebaseConfig = {
             apiKey: "AIzaSyCQdadpjEYK8zjroLVVRNuW_x-IGSBIpB0",
             authDomain: "malaebapp-d6409.firebaseapp.com",
@@ -35,48 +41,34 @@
             measurementId: "G-QNQXQBCHHT"
         };
 
-        // تهيئة Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // جعل دوال Firebase متاحة لـ React
         window.fb = {
-            auth,
-            db,
-            signInAnonymously,
-            onAuthStateChanged,
-            collection,
-            doc,
-            setDoc,
-            deleteDoc,
-            onSnapshot,
-            appId: 'attendance-app-online'
+            auth, db, signInAnonymously, onAuthStateChanged,
+            collection, doc, setDoc, deleteDoc, onSnapshot
         };
 
-        // إشارة لبدء تطبيق React بعد تحميل Firebase
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
 </head>
 <body class="bg-slate-50 text-slate-900 transition-colors duration-300">
     <div id="root">
-        <!-- شاشة التحميل الأولية -->
+        <!-- شاشة التحميل -->
         <div class="flex flex-col items-center justify-center min-h-screen text-slate-500 gap-4">
-            <div class="flex items-center gap-2">
-                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>جاري تحميل النظام...</span>
-            </div>
-            <p class="text-xs text-slate-400">إذا استغرق هذا وقتاً طويلاً، تأكد من اتصالك بالإنترنت.</p>
+            <svg class="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-sm font-medium">جاري تجهيز النظام...</span>
         </div>
     </div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // --- أيقونات (SVGs) ---
+        // --- الأيقونات ---
         const Icons = {
             Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
             User: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -93,16 +85,24 @@
             ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>,
             Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
             WifiOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>,
-            Error: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            ArrowRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+            LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+            Share: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         };
 
         const CourseTrackerApp = () => {
             const [user, setUser] = useState(null);
+            
+            // --- حالة التطبيق ---
+            const [trackerId, setTrackerId] = useState(() => localStorage.getItem('active_tracker_id'));
+            const [inputTrackerName, setInputTrackerName] = useState('');
+
             const [students, setStudents] = useState([]);
             const [lessons, setLessons] = useState([]);
             const [attendance, setAttendance] = useState({});
             
-            const [viewMode, setViewMode] = useState('cards');
+            const [viewMode, setViewMode] = useState('table');
+            
             const [newStudentName, setNewStudentName] = useState('');
             const [newLessonTitle, setNewLessonTitle] = useState('');
             const [newLessonDate, setNewLessonDate] = useState(new Date().toISOString().split('T')[0]);
@@ -124,50 +124,52 @@
                 }
             }, [darkMode]);
 
-            // --- 1. المصادقة والاتصال بقاعدة البيانات ---
+            // --- 1. التحقق من الرابط والمصادقة ---
             useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const sharedTrackerId = params.get('tracker');
+                if (sharedTrackerId) {
+                    setTrackerId(sharedTrackerId);
+                    localStorage.setItem('active_tracker_id', sharedTrackerId);
+                    setInputTrackerName(sharedTrackerId.replace(/-/g, ' '));
+                }
+
                 let attempts = 0;
-                // الانتظار حتى يتم تحميل مكتبة Firebase بالكامل
                 const checkFirebase = setInterval(() => {
                     attempts++;
                     if (window.fb) {
                         clearInterval(checkFirebase);
                         const { auth, signInAnonymously, onAuthStateChanged } = window.fb;
-                        
                         signInAnonymously(auth).catch((err) => {
                             console.error(err);
                             setErrorMessage("فشل تسجيل الدخول. تأكد من إعدادات قاعدة البيانات.");
                         });
                         onAuthStateChanged(auth, (u) => setUser(u));
-                    } else if (attempts > 50) { // 5 ثواني
+                    } else if (attempts > 50) {
                         clearInterval(checkFirebase);
-                        setErrorMessage("فشل تحميل النظام. تأكد من اتصالك بالإنترنت، أو أنك تستخدم سيرفر محلي (Local Server) وليس فتح الملف مباشرة.");
+                        setErrorMessage("فشل تحميل النظام. تأكد من الإنترنت.");
                     }
                 }, 100);
                 return () => clearInterval(checkFirebase);
             }, []);
 
-            // --- 2. جلب البيانات (Listeners) ---
+            // --- 2. جلب البيانات ---
             useEffect(() => {
-                if (!user || !window.fb) return;
-                const { db, collection, onSnapshot, appId } = window.fb;
+                if (!user || !window.fb || !trackerId) return;
+                const { db, collection, onSnapshot } = window.fb;
 
-                // أ) الطلاب
+                const appId = `tracker_${trackerId}`;
+
                 const unsubStudents = onSnapshot(collection(db, 'artifacts', appId, 'students'), (snap) => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     setStudents(data.sort((a, b) => a.name.localeCompare(b.name)));
-                }, (error) => {
-                     console.error("خطأ في جلب الطلاب:", error);
-                     setErrorMessage("لا يمكن جلب البيانات. قد يكون السبب نقص الصلاحيات في Firestore.");
-                });
+                }, (err) => console.error("Error fetching students:", err));
 
-                // ب) الدروس
                 const unsubLessons = onSnapshot(collection(db, 'artifacts', appId, 'lessons'), (snap) => {
                     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     setLessons(data.sort((a, b) => a.createdAt - b.createdAt));
                 });
 
-                // ج) الحضور
                 const unsubAttendance = onSnapshot(collection(db, 'artifacts', appId, 'attendance_logs'), (snap) => {
                     const records = {};
                     snap.docs.forEach(d => {
@@ -179,9 +181,8 @@
                 });
 
                 return () => { unsubStudents(); unsubLessons(); unsubAttendance(); };
-            }, [user]);
+            }, [user, trackerId]);
 
-            // مراقبة حالة الإنترنت
             useEffect(() => {
                 const handleStatus = () => setIsOffline(!navigator.onLine);
                 window.addEventListener('online', handleStatus);
@@ -189,52 +190,105 @@
                 return () => { window.removeEventListener('online', handleStatus); window.removeEventListener('offline', handleStatus); };
             }, []);
 
-            // --- الوظائف (Functions) ---
+            // --- دوال التحكم بالسجل ---
+            const handleEnterTracker = (e) => {
+                e.preventDefault();
+                if (!inputTrackerName.trim()) return;
+                const safeId = inputTrackerName.trim().replace(/\s+/g, '-').toLowerCase();
+                setTrackerId(safeId);
+                localStorage.setItem('active_tracker_id', safeId);
+                
+                try {
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?tracker=' + safeId;
+                    window.history.pushState({path: newUrl}, '', newUrl);
+                } catch (err) {
+                    console.log("تغيير الرابط غير مدعوم في هذه البيئة (آمن للتجاهل).");
+                }
+            };
 
+            const handleExitTracker = () => {
+                if(confirm("هل تريد الخروج من هذا السجل؟")) {
+                    setTrackerId(null);
+                    setStudents([]);
+                    setLessons([]);
+                    setAttendance({});
+                    setInputTrackerName('');
+                    localStorage.removeItem('active_tracker_id');
+                    
+                    try {
+                        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                        window.history.pushState({path: newUrl}, '', newUrl);
+                    } catch (err) {
+                        console.log("تغيير الرابط غير مدعوم في هذه البيئة (آمن للتجاهل).");
+                    }
+                }
+            };
+
+            const copyShareLink = () => {
+                let url = window.location.href;
+                if (!url.includes('tracker=')) {
+                     url = window.location.protocol + "//" + window.location.host + window.location.pathname + '?tracker=' + trackerId;
+                }
+
+                try {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = url;
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-9999px";
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert('تم نسخ رابط الدورة! أرسله للطلاب ليتابعوا معك.');
+                } catch (err) {
+                    alert('انسخ هذا الرابط يدوياً: ' + url);
+                }
+            };
+
+            // --- دوال البيانات ---
             const addStudent = async (e) => {
                 e.preventDefault();
-                if (!newStudentName.trim() || !user) return;
-                const { db, setDoc, doc, appId } = window.fb;
-                
+                if (!newStudentName.trim() || !user || !trackerId) return;
+                const { db, setDoc, doc } = window.fb;
+                const appId = `tracker_${trackerId}`;
                 const id = `student_${Date.now()}`;
                 await setDoc(doc(db, 'artifacts', appId, 'students', id), {
-                    name: newStudentName.trim(),
-                    createdAt: Date.now()
+                    name: newStudentName.trim(), createdAt: Date.now()
                 });
                 setNewStudentName('');
             };
 
             const removeStudent = async (id) => {
-                if (!user || !window.confirm('سيتم حذف الطالب وسجل إنجازه نهائياً. موافق؟')) return;
-                const { db, deleteDoc, doc, appId } = window.fb;
+                if (!user || !window.confirm('حذف هذا الطالب؟')) return;
+                const { db, deleteDoc, doc } = window.fb;
+                const appId = `tracker_${trackerId}`;
                 await deleteDoc(doc(db, 'artifacts', appId, 'students', id));
             };
 
             const addLesson = async (e) => {
                 e.preventDefault();
-                if (!newLessonTitle.trim() || !user) return;
-                const { db, setDoc, doc, appId } = window.fb;
-
+                if (!newLessonTitle.trim() || !user || !trackerId) return;
+                const { db, setDoc, doc } = window.fb;
+                const appId = `tracker_${trackerId}`;
                 const id = `lesson_${Date.now()}`;
                 await setDoc(doc(db, 'artifacts', appId, 'lessons', id), {
-                    title: newLessonTitle.trim(),
-                    date: newLessonDate,
-                    createdAt: Date.now()
+                    title: newLessonTitle.trim(), date: newLessonDate, createdAt: Date.now()
                 });
                 setNewLessonTitle('');
                 setNewLessonDate(new Date().toISOString().split('T')[0]);
             };
 
             const removeLesson = async (id) => {
-                if (!user || !window.confirm('هل تريد حذف هذا الدرس؟')) return;
-                const { db, deleteDoc, doc, appId } = window.fb;
+                if (!user || !window.confirm('حذف الدرس؟')) return;
+                const { db, deleteDoc, doc } = window.fb;
+                const appId = `tracker_${trackerId}`;
                 await deleteDoc(doc(db, 'artifacts', appId, 'lessons', id));
             };
 
             const toggleLessonForStudent = async (studentId, lessonId) => {
-                if (!user) return;
-                const { db, setDoc, deleteDoc, doc, appId } = window.fb;
-                
+                if (!user || !trackerId) return;
+                const { db, setDoc, deleteDoc, doc } = window.fb;
+                const appId = `tracker_${trackerId}`;
                 const recordId = `${studentId}_${lessonId}`;
                 const isCompleted = attendance[studentId]?.[lessonId];
 
@@ -248,7 +302,7 @@
             };
 
             const copyReport = () => {
-                let report = `📊 *تقرير متابعة الدروس*\n📅 ${new Date().toLocaleDateString('ar-SA')}\n\n`;
+                let report = `📊 *تقرير متابعة: ${inputTrackerName || trackerId}*\n📅 ${new Date().toLocaleDateString('ar-SA')}\n\n`;
                 students.forEach(student => {
                     const studentRecord = attendance[student.id] || {};
                     const completedCount = Object.keys(studentRecord).filter(lid => lessons.find(l => l.id === lid)).length;
@@ -264,13 +318,39 @@
                     textArea.select();
                     document.execCommand('copy');
                     document.body.removeChild(textArea);
-                    alert('تم نسخ ملخص الإنجاز!');
-                } catch (err) {
-                    alert('يرجى النسخ يدوياً.');
-                }
+                    alert('تم نسخ التقرير!');
+                } catch (err) { alert('انسخ يدوياً.'); }
             };
 
-            const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+            // --- منطق البحث الذكي (للطالب والدرس) ---
+            const { filteredStudents, filteredLessons } = useMemo(() => {
+                const lowerSearch = searchTerm.toLowerCase().trim();
+                if (!lowerSearch) {
+                    return { filteredStudents: students, filteredLessons: lessons };
+                }
+
+                const hasStudentMatch = students.some(s => s.name.toLowerCase().includes(lowerSearch));
+                const hasLessonMatch = lessons.some(l => l.title.toLowerCase().includes(lowerSearch));
+
+                let fStudents = students;
+                let fLessons = lessons;
+
+                if (hasStudentMatch && !hasLessonMatch) {
+                    // بحث عن طالب فقط
+                    fStudents = students.filter(s => s.name.toLowerCase().includes(lowerSearch));
+                } else if (hasLessonMatch && !hasStudentMatch) {
+                    // بحث عن درس فقط
+                    fLessons = lessons.filter(l => l.title.toLowerCase().includes(lowerSearch));
+                } else if (hasStudentMatch && hasLessonMatch) {
+                    // تطابق في الاثنين
+                    fStudents = students.filter(s => s.name.toLowerCase().includes(lowerSearch));
+                    fLessons = lessons.filter(l => l.title.toLowerCase().includes(lowerSearch));
+                } else {
+                    // لا يوجد تطابق
+                    fStudents = [];
+                }
+                return { filteredStudents: fStudents, filteredLessons: fLessons };
+            }, [searchTerm, students, lessons]);
 
             const getProgress = (studentId) => {
                 const record = attendance[studentId] || {};
@@ -278,33 +358,81 @@
                 return { completed, total: lessons.length, percentage: lessons.length ? (completed / lessons.length) * 100 : 0 };
             };
 
-            // شاشة الخطأ
-            if (errorMessage) {
+            if (errorMessage) return (
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="bg-red-50 text-red-800 p-6 rounded-xl border border-red-200 text-center max-w-md">
+                        <h3 className="font-bold">خطأ</h3><p className="mt-2 text-sm">{errorMessage}</p>
+                        <button onClick={() => window.location.reload()} className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm">تحديث</button>
+                    </div>
+                </div>
+            );
+
+            // --- 1. شاشة الهبوط ---
+            if (!trackerId) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center p-4">
-                        <div className="bg-red-50 text-red-800 p-6 rounded-xl border border-red-200 text-center max-w-md">
-                            <Icons.Error />
-                            <h3 className="text-lg font-bold mt-2">خطأ في التحميل</h3>
-                            <p className="mt-2 text-sm">{errorMessage}</p>
-                            <button onClick={() => window.location.reload()} className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-sm">إعادة المحاولة</button>
+                    <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-900'}`}>
+                        <div className="max-w-md w-full space-y-8">
+                            <div className="text-center space-y-2">
+                                <div className="inline-flex p-4 rounded-full bg-indigo-100 text-indigo-600 mb-4">
+                                    <Icons.Users />
+                                </div>
+                                <h1 className="text-3xl font-bold">متابع الحضور</h1>
+                                <p className="text-slate-500">أدخل اسم الدورة لإنشاء سجل جديد أو الانضمام لسجل موجود.</p>
+                            </div>
+
+                            <form onSubmit={handleEnterTracker} className={`p-6 rounded-2xl shadow-sm border space-y-4 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                                <div>
+                                    <label className="block text-sm font-medium mb-2 text-slate-500">اسم الدورة / المجموعة</label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        autoComplete="off"
+                                        placeholder="مثلاً: دورة الفيزياء 101" 
+                                        value={inputTrackerName}
+                                        onChange={(e) => setInputTrackerName(e.target.value)}
+                                        className={`w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-50 border-slate-300'}`}
+                                    />
+                                </div>
+                                <button 
+                                    type="submit" 
+                                    disabled={!user}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {user ? <>دخول للسجل <Icons.ArrowRight /></> : 'جاري الاتصال...'}
+                                </button>
+                            </form>
+                            
+                            <div className="text-center">
+                                <button onClick={() => setDarkMode(!darkMode)} className="text-sm text-slate-400 hover:text-slate-600 flex items-center justify-center gap-2 mx-auto">
+                                    {darkMode ? <><Icons.Sun /> تفعيل الوضع النهاري</> : <><Icons.Moon /> تفعيل الوضع الليلي</>}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 );
             }
 
-            if (!user && !isOffline) return null; // Loading handled by HTML spinner
-
+            // --- 2. التطبيق الرئيسي ---
             return (
                 <div className="min-h-screen pb-20">
                     {/* Header */}
                     <div className={`sticky top-0 z-20 shadow-sm backdrop-blur-md border-b ${darkMode ? 'bg-slate-900/90 border-slate-700' : 'bg-white/90 border-slate-200'}`}>
-                        <div className="max-w-3xl mx-auto p-4 flex flex-wrap gap-4 justify-between items-center">
-                            <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="text-indigo-500"><Icons.Users /></span>
-                                متابع الحضور (أونلاين)
-                                {isOffline && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded flex items-center gap-1"><Icons.WifiOff/> غير متصل</span>}
-                            </h1>
+                        <div className="max-w-4xl mx-auto p-4 flex flex-wrap gap-4 justify-between items-center">
+                            <div>
+                                <h1 className="text-xl font-bold flex items-center gap-2">
+                                    <span className="text-indigo-500"><Icons.Users /></span>
+                                    {inputTrackerName || trackerId}
+                                </h1>
+                                {isOffline && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded inline-flex items-center gap-1 mt-1"><Icons.WifiOff/> وضع غير متصل</span>}
+                            </div>
                             <div className="flex gap-2">
+                                <button onClick={copyShareLink} className="p-2 rounded-lg text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold flex items-center gap-2 transition-colors border border-indigo-200">
+                                    <Icons.Share /> مشاركة
+                                </button>
+                                <button onClick={handleExitTracker} className={`p-2 rounded-lg text-sm text-red-500 hover:bg-red-50 font-bold flex items-center gap-2 border border-transparent hover:border-red-200 transition-colors`}>
+                                    <Icons.LogOut /> خروج
+                                </button>
+                                <div className="w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
                                 <button onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')} className={`p-2 rounded-lg text-sm font-bold flex items-center gap-2 border transition-colors ${viewMode === 'table' ? 'bg-indigo-600 text-white border-indigo-600' : (darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200')}`}>
                                     {viewMode === 'cards' ? <><Icons.FileSpreadsheet/> جدول</> : <><Icons.LayoutGrid/> بطاقات</>}
                                 </button>
@@ -315,11 +443,11 @@
                         </div>
                     </div>
 
-                    <div className="max-w-3xl mx-auto p-4 space-y-6">
+                    <div className="max-w-4xl mx-auto p-4 space-y-6">
                         
                         {!user && isOffline && (
                            <div className="p-4 bg-red-50 text-red-800 rounded-lg text-center mb-4">
-                               أنت غير متصل بالإنترنت. البيانات المعروضة قد تكون قديمة ولن يتم حفظ التغييرات.
+                               أنت غير متصل بالإنترنت. لن يتم حفظ التغييرات.
                            </div>
                         )}
 
@@ -339,28 +467,32 @@
                             </form>
                         </div>
 
-                        {/* Controls */}
+                        {/* Controls - Modified Layout */}
                         <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="relative flex-1">
-                                <Icons.Search className={`absolute right-3 top-3 w-5 h-5 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
-                                <input type="text" placeholder="ابحث عن اسم..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pr-10 pl-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
-                            </div>
-                            <form onSubmit={addStudent} className="flex gap-2 sm:w-1/3">
-                                <input required autoComplete="off" type="text" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} placeholder="اسم طالب..." disabled={!user} className={`flex-1 p-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
-                                <button type="submit" disabled={!user} className="bg-green-600 hover:bg-green-700 text-white px-3 rounded-xl disabled:opacity-50"><Icons.Plus /></button>
+                            {/* Add Student Form - First in DOM (Right in RTL), bigger width */}
+                            <form onSubmit={addStudent} className="flex gap-2 flex-1">
+                                <input required autoComplete="off" type="text" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} placeholder="اسم طالب جديد..." disabled={!user} className={`flex-1 p-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-green-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
+                                <button type="submit" disabled={!user} className="bg-green-600 hover:bg-green-700 text-white px-4 rounded-xl disabled:opacity-50 font-bold flex items-center gap-1"><Icons.Plus /> إضافة</button>
                             </form>
+
+                            {/* Search Input - Second in DOM (Left in RTL), smaller width */}
+                            <div className="relative sm:w-1/3">
+                                <Icons.Search className={`absolute right-3 top-3 w-5 h-5 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                                <input type="text" placeholder="بحث عن طالب أو درس..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pr-10 pl-4 py-2.5 rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`} />
+                            </div>
                         </div>
 
                         {/* View Mode: Cards */}
                         {viewMode === 'cards' && (
                             <div className="space-y-3">
-                                {filteredStudents.length === 0 ? <div className="text-center py-10 opacity-50">لا يوجد طلاب (أو جاري التحميل)</div> : filteredStudents.map(student => {
+                                {filteredStudents.length === 0 ? <div className="text-center py-10 opacity-50">لا يوجد طلاب مطابقين</div> : filteredStudents.map((student, index) => {
                                     const progress = getProgress(student.id);
                                     const isExpanded = expandedStudentId === student.id;
                                     return (
                                         <div key={student.id} className={`rounded-2xl border transition-all overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
                                             <div onClick={() => setExpandedStudentId(isExpanded ? null : student.id)} className="p-4 cursor-pointer hover:bg-black/5 flex items-center justify-between">
                                                 <div className="flex items-center gap-3 flex-1">
+                                                    <span className="text-sm font-bold opacity-50 bg-slate-100 dark:bg-slate-700 w-6 h-6 flex items-center justify-center rounded">{index + 1}</span>
                                                     <div className={`p-2 rounded-full ${progress.percentage === 100 ? 'bg-green-100 text-green-600' : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-500')}`}><Icons.User /></div>
                                                     <div className="flex-1">
                                                         <h3 className="font-bold text-lg leading-tight">{student.name}</h3>
@@ -376,9 +508,9 @@
                                             </div>
                                             {isExpanded && (
                                                 <div className={`p-4 pt-0 border-t ${darkMode ? 'border-slate-700 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
-                                                    <p className="text-xs opacity-50 py-3 font-medium">حدد الدروس المكتملة:</p>
+                                                    <p className="text-xs opacity-50 py-3 font-medium">الدروس:</p>
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                        {lessons.length === 0 ? <p className="text-sm opacity-50 italic col-span-2 text-center">لا توجد دروس</p> : lessons.map((lesson, idx) => {
+                                                        {filteredLessons.length === 0 ? <p className="text-sm opacity-50 italic col-span-2 text-center">لا توجد دروس مطابقة</p> : filteredLessons.map((lesson, idx) => {
                                                             const isChecked = !!attendance[student.id]?.[lesson.id];
                                                             return (
                                                                 <div key={lesson.id} onClick={() => toggleLessonForStudent(student.id, lesson.id)} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isChecked ? (darkMode ? 'bg-green-900/20 border-green-500/50' : 'bg-green-50 border-green-500') : (darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200')}`}>
@@ -399,38 +531,70 @@
                             </div>
                         )}
 
-                        {/* View Mode: Table */}
+                        {/* View Mode: Table (Redesigned & Responsive) */}
                         {viewMode === 'table' && (
-                            <div className={`rounded-xl border overflow-hidden ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                            <div className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${darkMode ? 'bg-slate-800 border-slate-700 shadow-slate-900/20' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-sm text-right">
-                                        <thead className={`text-xs uppercase font-bold ${darkMode ? 'bg-slate-900/50 text-slate-300' : 'bg-slate-50 text-slate-600'}`}>
-                                            <tr>
-                                                <th className="px-4 py-3 sticky right-0 z-10 border-l dark:border-slate-700 bg-inherit min-w-[140px]">الطالب</th>
-                                                <th className="px-4 py-3 border-l dark:border-slate-700 text-center min-w-[80px]">الإنجاز</th>
-                                                {lessons.map((lesson, idx) => (
-                                                    <th key={lesson.id} className="px-4 py-3 min-w-[120px] text-center border-l dark:border-slate-700 group relative align-top">
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <div className="flex items-center gap-1"><span className="bg-slate-200 dark:bg-slate-700 text-slate-500 px-1.5 py-0.5 rounded text-[10px]">{idx + 1}</span><span>{lesson.title}</span></div>
-                                                            <span className="text-[10px] opacity-60 font-normal">{lesson.date}</span>
-                                                            <button onClick={() => removeLesson(lesson.id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-500/10 rounded mt-1" title="حذف الدرس"><Icons.Trash2 /></button>
+                                    <table className="w-full text-sm text-right border-collapse min-w-max">
+                                        <thead>
+                                            <tr className={`text-xs uppercase font-bold tracking-wider border-b ${darkMode ? 'bg-slate-900/80 text-slate-400 border-slate-700' : 'bg-slate-100/80 text-slate-600 border-slate-200'}`}>
+                                                <th className="px-4 py-3 sm:px-6 sm:py-4 w-12 sm:w-16 text-center">#</th>
+                                                <th className={`px-4 py-3 sm:px-6 sm:py-4 sticky right-0 z-20 min-w-[140px] sm:min-w-[160px] ${darkMode ? 'bg-slate-900' : 'bg-slate-100'}`}>الطالب</th>
+                                                <th className="px-4 py-3 sm:px-6 sm:py-4 text-center min-w-[100px]">نسبة الإنجاز</th>
+                                                {filteredLessons.map((lesson, idx) => (
+                                                    <th key={lesson.id} className="px-3 py-3 sm:px-4 sm:py-4 min-w-[120px] sm:min-w-[140px] text-center font-medium group vertical-align-top">
+                                                        <div className="flex flex-col items-center gap-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-white text-slate-500 border border-slate-200'}`}>{idx + 1}</span>
+                                                                <span className="truncate max-w-[80px] sm:max-w-[100px]" title={lesson.title}>{lesson.title}</span>
+                                                            </div>
+                                                            <span className="text-[10px] font-normal opacity-60 bg-inherit px-2 py-0.5 rounded-full border border-current">{lesson.date}</span>
+                                                            <button onClick={() => removeLesson(lesson.id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-red-500/10 rounded-full mt-1" title="حذف الدرس"><Icons.Trash2 /></button>
                                                         </div>
                                                     </th>
                                                 ))}
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y dark:divide-slate-700">
-                                            {filteredStudents.map(student => {
+                                        <tbody className={`divide-y ${darkMode ? 'divide-slate-700' : 'divide-slate-100'}`}>
+                                            {filteredStudents.map((student, index) => {
                                                 const progress = getProgress(student.id);
                                                 return (
-                                                    <tr key={student.id} className={`${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-slate-50'}`}>
-                                                        <td className={`px-4 py-3 font-medium sticky right-0 z-10 border-l dark:border-slate-700 ${darkMode ? 'bg-slate-800' : 'bg-white'}`}>{student.name}</td>
-                                                        <td className="px-4 py-3 text-center border-l dark:border-slate-700"><span className={`px-2 py-1 rounded text-xs font-bold ${progress.percentage === 100 ? 'bg-green-100 text-green-700' : progress.percentage > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>{progress.completed}/{progress.total}</span></td>
-                                                        {lessons.map(lesson => {
+                                                    <tr key={student.id} className={`group transition-colors ${darkMode ? 'hover:bg-slate-700/30' : 'hover:bg-slate-50'}`}>
+                                                        <td className={`px-4 py-3 sm:px-6 sm:py-4 text-center font-mono text-xs opacity-40`}>{index + 1}</td>
+                                                        <td className={`px-4 py-3 sm:px-6 sm:py-4 font-bold sticky right-0 z-20 border-l ${darkMode ? 'bg-slate-800 group-hover:bg-slate-800 border-slate-700' : 'bg-white group-hover:bg-slate-50 border-slate-100'}`}>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shrink-0 ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                                    {student.name.charAt(0)}
+                                                                </div>
+                                                                <span className="truncate">{student.name}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 sm:px-6 sm:py-4 text-center">
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                                                                    progress.percentage === 100 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 
+                                                                    progress.percentage > 0 ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 
+                                                                    'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-500'
+                                                                }`}>
+                                                                    {Math.round(progress.percentage)}%
+                                                                </span>
+                                                                <div className="w-16 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                                    <div className={`h-full ${progress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{width: `${progress.percentage}%`}}></div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        {filteredLessons.map(lesson => {
                                                             const isDone = !!attendance[student.id]?.[lesson.id];
                                                             return (
-                                                                <td key={lesson.id} className="px-4 py-3 text-center border-l dark:border-slate-700 cursor-pointer hover:bg-black/5" onClick={() => toggleLessonForStudent(student.id, lesson.id)}>
-                                                                    {isDone ? <Icons.CheckCircle className="mx-auto text-green-500 w-5 h-5" /> : <div className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 mx-auto"></div>}
+                                                                <td key={lesson.id} className="px-3 py-3 sm:px-4 sm:py-4 text-center cursor-pointer relative" onClick={() => toggleLessonForStudent(student.id, lesson.id)}>
+                                                                    <div className="absolute inset-0 group-hover:bg-black/[0.02] dark:group-hover:bg-white/[0.02] transition-colors"></div>
+                                                                    <div className={`relative z-10 w-8 h-8 mx-auto rounded-xl flex items-center justify-center transition-all duration-300 ${
+                                                                        isDone 
+                                                                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30 scale-110' 
+                                                                        : 'bg-slate-100 text-slate-300 dark:bg-slate-700/50 dark:text-slate-600 hover:scale-110'
+                                                                    }`}>
+                                                                        {isDone ? <Icons.CheckCircle className="w-5 h-5" /> : <div className="w-2 h-2 rounded-full bg-current opacity-50"></div>}
+                                                                    </div>
                                                                 </td>
                                                             );
                                                         })}
@@ -440,6 +604,14 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                {filteredStudents.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center p-12 text-slate-400 opacity-60">
+                                        <Icons.Users />
+                                        <p className="mt-2 text-sm">
+                                            {searchTerm ? 'لا توجد نتائج مطابقة للبحث' : 'القائمة فارغة. أضف طلاباً للبدء.'}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
                         <div className="fixed bottom-6 left-6 z-10">
@@ -450,7 +622,6 @@
             );
         };
 
-        // تشغيل React بعد تحميل الصفحة
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<CourseTrackerApp />);
     </script>
